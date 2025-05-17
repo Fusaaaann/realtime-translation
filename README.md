@@ -1,59 +1,112 @@
-# OBS Plugin Template
+# Realtime OBS translation + streaming plugin
 
-## Introduction
+## Compiled Latest Version of the Solution
 
-The plugin template is meant to be used as a starting point for OBS Studio plugin development. It includes:
+### 1. Overall Plugin Concept
 
-* Boilerplate plugin source code
-* A CMake project file
-* GitHub Actions workflows and repository actions
+- **Plugin Type:**  
+  An OBS Source plugin named “API Multi-Language Voice & Text Source” responsible for:
+  - Receiving voice data and API responses.
+  - Generating a multi-channel audio stream.
+  - Displaying time-synced text (captions) within OBS.
 
-## Supported Build Environments
+- **Key Consideration:**  
+  The plugin does not need to implement NDI output directly. Instead, it produces correctly formatted multi-channel audio and text output that can be picked up by a separate, fully featured OBS NDI plugin (e.g., “obs-ndi”).
 
-| Platform  | Tool   |
-|-----------|--------|
-| Windows   | Visal Studio 17 2022 |
-| macOS     | XCode 16.0 |
-| Windows, macOS  | CMake 3.30.5 |
-| Ubuntu 24.04 | CMake 3.28.3 |
-| Ubuntu 24.04 | `ninja-build` |
-| Ubuntu 24.04 | `pkg-config`
-| Ubuntu 24.04 | `build-essential` |
+---
 
-## Quick Start
+### 2. Modules and Components
 
-An absolute bare-bones [Quick Start Guide](https://github.com/obsproject/obs-plugintemplate/wiki/Quick-Start-Guide) is available in the wiki.
+#### A. Audio Capture Module
+- Captures input audio (from the speaker/admin client).
+- Prepares audio data for API requests and subsequent processing.
 
-## Documentation
+#### B. Network Client Module
+- Handles all API communications with the central server.
+- RSS/HTTP interactions include:
+  - **Transcription:** Upload captured audio for language-specific speech-to-text processing.
+  - **Translation:** Retrieve translated captions in target languages.
+  - **Text-to-Speech (TTS):** Optionally retrieve TTS audio.
+- Parses multi-language responses and tags audio streams with their corresponding language IDs.
 
-All documentation can be found in the [Plugin Template Wiki](https://github.com/obsproject/obs-plugintemplate/wiki).
+#### C. Audio Playback Module
+- **Channel Mapping:**  
+  Receives tagged audio from the network client and distributes it to pre-designated output channels based on a user-defined mapping.
+- **Multi-channel Output:**  
+  Presents interleaved multi-channel audio through the OBS audio_render callback.
+- **NDI Compatibility:**  
+  Produces standard multi-channel audio acceptable to the `obs-ndi` plugin’s “Source Output” procedure.
 
-Suggested reading to get up and running:
+#### D. Text Output Module
+- **Primary Function:**  
+  Extracts and passes through the filtered text (captions) for the primary language.
+- **Output Options:**  
+  - Writes to a file (for external viewing or network shares).
+  - Updates a specified OBS Text Source dynamically within the plugin’s scene.
+- **Note on NDI:**  
+  The text is not embedded within the NDI stream. Any text display isn’t handed over to external NDI viewers like VLC automatically.
 
-* [Getting started](https://github.com/obsproject/obs-plugintemplate/wiki/Getting-Started)
-* [Build system requirements](https://github.com/obsproject/obs-plugintemplate/wiki/Build-System-Requirements)
-* [Build system options](https://github.com/obsproject/obs-plugintemplate/wiki/CMake-Build-System-Options)
+#### E. Configuration UI (Properties Panel)
+- **Inputs & Endpoints:**  
+  - Audio source settings.
+  - API endpoint URL and authentication.
+- **Channel Mapping:**  
+  Allows mapping which language (or voice channel) goes to which output channel.
+- **Text Options:**  
+  - Enable/Disable text output.
+  - Select primary text language.
+  - Choose method: writing to file or updating an OBS text source.
+- **Status & Enable/Disable Toggle:**  
+  For monitoring and quick adjustments.
 
-## GitHub Actions & CI
+#### F. State Management Module
+- Maintains the operational state and synchronizes audio/text across changes in network and user configuration.
 
-Default GitHub Actions workflows are available for the following repository actions:
+---
 
-* `push`: Run for commits or tags pushed to `master` or `main` branches.
-* `pr-pull`: Run when a Pull Request has been pushed or synchronized.
-* `dispatch`: Run when triggered by the workflow dispatch in GitHub's user interface.
-* `build-project`: Builds the actual project and is triggered by other workflows.
-* `check-format`: Checks CMake and plugin source code formatting and is triggered by other workflows.
+### 3. Integration with OBS NDI Workflow
 
-The workflows make use of GitHub repository actions (contained in `.github/actions`) and build scripts (contained in `.github/scripts`) which are not needed for local development, but might need to be adjusted if additional/different steps are required to build the plugin.
+#### A. User Setup Workflow:
+1. **Install Prerequisites:**
+   - Install our API Multi-Language Voice & Text Source plugin.
+   - Install the OBS NDI plugin (e.g., “obs-ndi”).
 
-### Retrieving build artifacts
+2. **Configure Our Plugin in OBS:**
+   - Add the source to the desired scene.
+   - Set up API details, language mapping, and text output paths or targets.
 
-Successful builds on GitHub Actions will produce build artifacts that can be downloaded for testing. These artifacts are commonly simple archives and will not contain package installers or installation programs.
+3. **Configure OBS NDI Output:**
+   - Navigate to OBS → Tools → NDI Output Settings.
+   - Enable a “Source Output” and select the instance of our plugin as the source.
+   - Assign a stream name (e.g., “OBS-API-Audio”).
 
-### Building a Release
+4. **Client (VLC) Setup:**
+   - In VLC’s “Open Network Stream” section, let it discover and display available NDI sources.
+   - Select the correct named NDI stream; note that VLC will pick up the multi-channel audio (subject to VLC’s handling of multi-channel streams).
+   - For text, view the separately provided text file or have OBS display the text within a scene.
 
-To create a release, an appropriately named tag needs to be pushed to the `main`/`master` branch using semantic versioning (e.g., `12.3.4`, `23.4.5-beta2`). A draft release will be created on the associated repository with generated installer packages or installation programs attached as release artifacts.
+#### B. Handling Output Differences:
+- **Audio:**  
+  Multi-channel audio is forwarded through the standard audio render callback and is completely compliant with what the OBS NDI plugin expects.
+- **Text:**  
+  Since NDI outputs don’t handle arbitrary text streams well:
+  - The text transcription is provided separately (via file or OBS text source update).
+  - Users need to access caption text by opening the generated file or via the OBS scene itself.
 
-## Signing and Notarizing on macOS
+---
 
-Basic concepts of codesigning and notarization on macOS are explained in the correspodning [Wiki article](https://github.com/obsproject/obs-plugintemplate/wiki/Codesigning-On-macOS) which has a specific section for the [GitHub Actions setup](https://github.com/obsproject/obs-plugintemplate/wiki/Codesigning-On-macOS#setting-up-code-signing-for-github-actions).
+### 4. Development & Deployment Considerations
+
+- **Separation of Concerns:**  
+  Keep core functionality (network processing, audio capture, multi-channel output) within our custom source plugin. Leave the transport (NDI streaming) to the robust, dedicated OBS `obs-ndi` plugin.
+  
+- **Testing:**
+  - Verify that the multi-channel audio from our plugin is correctly recognized and transmitted by the OBS NDI output.
+  - Test using VLC or NDI Studio Monitor to ensure proper channel allocation.
+  - Validate text output methods separately to guarantee synchronization with audio despite the two being delivered via different systems.
+
+- **Packaging & Documentation:**
+  - Provide clear installation instructions.
+  - Document the necessity for the OBS NDI plugin.
+  - Step-by-step guides for configuring both our plugin and the NDI output.
+  - Explain that text output is not part of the NDI stream and must be accessed via provided alternatives.

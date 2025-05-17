@@ -64,25 +64,36 @@ function(_setup_obs_studio)
 
   message(STATUS "Configure ${label} (${arch})")
   execute_process(
-    COMMAND
-      "${CMAKE_COMMAND}" -S "${dependencies_dir}/${_obs_destination}" -B
-      "${dependencies_dir}/${_obs_destination}/build_${arch}" -G ${_cmake_generator} "${_cmake_arch}"
-      -DOBS_CMAKE_VERSION:STRING=3.0.0 -DENABLE_PLUGINS:BOOL=OFF -DENABLE_UI:BOOL=OFF
-      -DOBS_VERSION_OVERRIDE:STRING=${_obs_version} "-DCMAKE_PREFIX_PATH='${CMAKE_PREFIX_PATH}'" ${_is_fresh}
-      ${_cmake_extra}
-    RESULT_VARIABLE _process_result
-    COMMAND_ERROR_IS_FATAL ANY
-    OUTPUT_QUIET
+  COMMAND
+    "${CMAKE_COMMAND}"
+    -S "${dependencies_dir}/${_obs_destination}"
+    -B "${dependencies_dir}/${_obs_destination}/build_${arch}"
+    -G ${_cmake_generator}
+    "${_cmake_arch}"
+    -DOBS_CMAKE_VERSION:STRING=3.0.0
+    -DENABLE_PLUGINS:BOOL=OFF
+    -DENABLE_UI:BOOL=OFF
+    -DOBS_VERSION_OVERRIDE:STRING=${_obs_version}
+    "-DCMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}"
+    ${_is_fresh}
+    ${_cmake_extra}
+  RESULT_VARIABLE _process_result
+  COMMAND_ERROR_IS_FATAL ANY
+    #OUTPUT_QUIET
   )
+  message(STATUS "_process_result: ${_process_result}")
   message(STATUS "Configure ${label} (${arch}) - done")
 
   message(STATUS "Build ${label} (Debug - ${arch})")
+  # TODO: get what will be built, especially 
+  #get_target_property(SWRESAMPLE_LIB FFmpeg::swresample IMPORTED_LOCATION)
+  #message(STATUS "SWRESAMPLE_LIB: ${SWRESAMPLE_LIB}")
   execute_process(
     COMMAND "${CMAKE_COMMAND}" --build build_${arch} --target obs-frontend-api --config Debug --parallel
     WORKING_DIRECTORY "${dependencies_dir}/${_obs_destination}"
     RESULT_VARIABLE _process_result
     COMMAND_ERROR_IS_FATAL ANY
-    OUTPUT_QUIET
+    # OUTPUT_QUIET
   )
   message(STATUS "Build ${label} (Debug - ${arch}) - done")
 
