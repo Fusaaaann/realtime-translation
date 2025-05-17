@@ -34,8 +34,17 @@ if(ENABLE_QT)
   )
 endif()
 
+if(TARGET CURL::libcurl)
+  message(STATUS "Using existing CURL::libcurl target")
+else()
+  find_package(CURL REQUIRED)
+endif()
+target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE CURL::libcurl)
+
 target_sources(${CMAKE_PROJECT_NAME} 
   PRIVATE src/plugin-main.c
   )
+get_target_property(obs_inc_dir OBS::libobs INTERFACE_INCLUDE_DIRECTORIES)
+message(STATUS "OBS::libobs include dirs: ${obs_inc_dir}")
 
 set_target_properties_plugin(${CMAKE_PROJECT_NAME} PROPERTIES OUTPUT_NAME ${_name})

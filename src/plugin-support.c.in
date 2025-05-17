@@ -1,76 +1,23 @@
 #include <plugin-support.h>
-#include <obs-module.h>
 
-static const char *media_proc_get_name(void *unused)
+const char *PLUGIN_NAME = "@CMAKE_PROJECT_NAME@";
+const char *PLUGIN_VERSION = "@CMAKE_PROJECT_VERSION@";
+
+extern void blogva(int log_level, const char *format, va_list args);
+
+void obs_log(int log_level, const char *format, ...)
 {
-    UNUSED_PARAMETER(unused);
-    return "OBS Realtime Translate";
+    size_t length = 4 + strlen(PLUGIN_NAME) + strlen(format);
+
+    char *template = malloc(length + 1);
+
+    snprintf(template, length, "[%s] %s", PLUGIN_NAME, format);
+
+    va_list(args);
+
+    va_start(args, format);
+    blogva(log_level, template, args);
+    va_end(args);
+
+    free(template);
 }
-
-/*
- * This is the OBS source info structure for your plugin.
- * It only implements the create / destroy / video_render callbacks
- * (no audio, no filters, no tick, no properties).
- */
-struct obs_source_info media_proc_source_info = {
-    "media_proc_source",
-    OBS_SOURCE_TYPE_INPUT,
-    OBS_SOURCE_VIDEO,
-    media_proc_get_name,
-    media_proc_create,
-    media_proc_destroy,
-    media_proc_video_render
-    // Make sure to include remaining members if required, or trailing commas if allowed
-};
-
-// --- OBS Source Plugin: Data Structure ---
-struct media_proc_source {
-    obs_source_t *source;
-    // Add any additional members as required (e.g., configuration settings)
-};
-
-// --- OBS Plugin Create Callback ---
-static void *media_proc_create(obs_data_t *settings, obs_source_t *source)
-{
-    struct media_proc_source *s = bzalloc(sizeof(struct media_proc_source));
-    s->source = source;
-    // (Optionally: load any settings)
-    return s;
-}
-
-// --- OBS Plugin Destroy Callback ---
-static void media_proc_destroy(void *data)
-{
-    struct media_proc_source *s = data;
-    bfree(s);
-}
-
-// --- OBS Video Render Callback ---
-// This callback is where you intercept each frame.
-static void media_proc_video_render(void *data, gs_effect_t *effect)
-{
-    struct media_proc_source *s = data;
-
-    // Request the next video frame from the upstream source
-    obs_source_frame *frame = obs_source_get_frame(s->source);
-    if (!frame)
-        return;
-
-    // Process the captured frame via third-party API
-    obs_source_frame *processed_frame = process_frame_via_api(frame);
-    obs_source_release_frame(frame);
-
-    if (processed_frame) {
-        // Render the new processed frame. One way is to draw it as a texture.
-        gs_eparam_t *image = gs_effect_get_param_by_name(effect, "image");
-        gs_texture_t *tex = obs_get_texture(processed_frame);
-        if (tex) {
-            gs_effect_set_texture(image, tex);
-            while (gs_effect_loop(effect, "Draw")) {
-                gs_draw_sprite(tex, 0, processed_frame->width, processed_frame->height);
-            }
-        }
-        obs_source_release_frame(processed_frame);
-    }
-}
-

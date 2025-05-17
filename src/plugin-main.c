@@ -24,6 +24,68 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 
 OBS_DECLARE_MODULE()
 OBS_MODULE_USE_DEFAULT_LOCALE("media_proc_plugin", "en-US")
+/*
+ * This is the OBS source info structure for your plugin.
+ * It only implements the create / destroy / video_render callbacks
+ * (no audio, no filters, no tick, no properties).
+ */
+
+
+// --- OBS Source Plugin: Data Structure ---
+struct media_proc_source {
+    obs_source_t *source;
+    // Add any additional members as required (e.g., configuration settings)
+};
+static const char *media_proc_get_name(void *unused)
+{
+    UNUSED_PARAMETER(unused);
+    return "OBS Realtime Translate";
+}
+// --- OBS Plugin Create Callback ---
+static void *media_proc_create(obs_data_t *settings, obs_source_t *source)
+{
+    struct media_proc_source *s = bzalloc(sizeof(struct media_proc_source));
+    s->source = source;
+    // (Optionally: load any settings)
+    return s;
+}
+
+// --- OBS Plugin Destroy Callback ---
+static void media_proc_destroy(void *data)
+{
+    struct media_proc_source *s = data;
+    bfree(s);
+}
+
+// --- OBS Video Render Callback ---
+// This callback is where you intercept each frame.
+static void media_proc_video_render(void *data, gs_effect_t *effect)
+{
+    struct media_proc_source *s = data;
+
+    // Request the next video frame from the upstream source
+    obs_source_frame *frame = obs_source_get_frame(s->source);
+    if (!frame)
+        return;
+
+    // Process the captured frame via third-party API
+    obs_source_frame *processed_frame = process_frame_via_api(frame);
+    obs_source_release_frame(frame);
+
+    if (processed_frame) {
+        // Render the new processed frame. One way is to draw it as a texture.
+        gs_eparam_t *image = gs_effect_get_param_by_name(effect, "image");
+        gs_texture_t *tex = obs_get_texture(processed_frame);
+        if (tex) {
+            gs_effect_set_texture(image, tex);
+            while (gs_effect_loop(effect, "Draw")) {
+                gs_draw_sprite(tex, 0, processed_frame->width, processed_frame->height);
+            }
+        }
+        obs_source_release_frame(processed_frame);
+    }
+}
+
 
 // --- Helper Structure to accumulate API response data ---
 struct api_response {
@@ -148,17 +210,26 @@ static obs_source_frame *process_frame_via_api(const obs_source_frame *frame)
 }
 
 
-
-// // --- Define the source information structure ---
-// static struct obs_source_info media_proc_source_info = {
-//     .id = "media_proc_source", // unique id
-//     .type = OBS_SOURCE_TYPE_INPUT,
-//     .output_flags = OBS_SOURCE_VIDEO,
-//     .create = media_proc_create,
-//     .destroy = media_proc_destroy,
-//     .video_render = media_proc_video_render,
-//     // You may include additional callbacks, such as .update or .get_properties, as needed.
+// struct obs_source_info media_proc_source_info = {
+//     "media_proc_source",
+//     OBS_SOURCE_TYPE_INPUT,
+//     OBS_SOURCE_VIDEO,
+//     media_proc_get_name,
+//     media_proc_create,
+//     media_proc_destroy,
+//     media_proc_video_render
+//     // Make sure to include remaining members if required, or trailing commas if allowed
 // };
+// --- Define the source information structure ---
+static struct obs_source_info media_proc_source_info = {
+    .id = "media_proc_source", // unique id
+    .type = OBS_SOURCE_TYPE_INPUT,
+    .output_flags = OBS_SOURCE_VIDEO,
+    .create = media_proc_create,
+    .destroy = media_proc_destroy,
+    .video_render = media_proc_video_render,
+    // You may include additional callbacks, such as .update or .get_properties, as needed.
+};
 
 // --- OBS Module Load ---
 bool obs_module_load(void)

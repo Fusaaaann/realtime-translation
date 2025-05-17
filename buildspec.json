@@ -36,10 +36,10 @@
             "bundleId": "com.example.plugintemplate-for-obs"
         }
     },
-    "name": "plugintemplate-for-obs",
-    "displayName": "Plugin Template for OBS",
+    "name": "realtime-obs-translate",
+    "displayName": "Plugin for OBS to translate incoming audio in realtime",
     "version": "1.0.0",
-    "author": "Your Name Here",
+    "author": "Fusaaaann",
     "website": "https://example.com",
-    "email": "me@example.com"
+    "email": "fusen.5065@gmail.com"
 }
